@@ -1,0 +1,53 @@
+version: 2
+
+mart_transaction_summary:
+  description: "Mart for summarizing transaction data including revenue, failure rate, and merchant details."
+  columns:
+    - name: transaction_id
+      description: "Unique identifier for each transaction."
+    - name: merchant_id
+      description: "Foreign key to dim_merchant table."
+      tests:
+        - not_null
+    - name: merchant_name
+      description: "Name of the merchant associated with the transaction."
+    - name: total_revenue
+      description: "Total revenue from completed transactions."
+      tests:
+        - generic_test:
+            function: "test_total_revenue_gte_zero"
+    - name: failure_rate_pct
+      description: "Failure rate of transactions as a percentage."
+      tests:
+        - generic_test:
+            function: "test_failure_rate_between_0_and_100"
+    - name: bad_data_status
+      description: "Test column to check for invalid status values."
+      tests:
+        - generic_test:
+            function: "test_status_not_cancelled"
+
+tests:
+  test_total_revenue_gte_zero:
+    severity: error
+    sql: |
+      SELECT
+        transaction_id
+      FROM {{ ref('mart_transaction_summary') }}
+      WHERE total_revenue < 0
+
+  test_failure_rate_between_0_and_100:
+    severity: error
+    sql: |
+      SELECT
+        transaction_id
+      FROM {{ ref('mart_transaction_summary') }}
+      WHERE failure_rate_pct < 0 OR failure_rate_pct > 100
+
+  test_status_not_cancelled:
+    severity: error
+    sql: |
+      SELECT
+        transaction_id
+      FROM {{ ref('mart_transaction_summary') }}
+      WHERE bad_data_status = 'CANCELLED'

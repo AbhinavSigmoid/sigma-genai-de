@@ -163,11 +163,11 @@ NL2SQL_QUESTIONS = [
 # ── SNOWFLAKE CONFIG TEMPLATE ──────────────────────────────
 
 SNOWFLAKE_CONFIG_TEMPLATE = {
-    "user": "student_genai",
-    "account": "GEJKIOG-TKC55632",
+    "user": "ABHINAVSIGMOID",
+    "account": "BMNQHFN-KQ20820",
     "private_key_path": "../bonus/student_key.p8",
     "database": "SIGMA_DE",
     "schema": "PUBLIC",
     "warehouse": "COMPUTE_WH",
-    "role": "STUDENT_CORTEX",
+   "role": "ACCOUNTADMIN",
 }
