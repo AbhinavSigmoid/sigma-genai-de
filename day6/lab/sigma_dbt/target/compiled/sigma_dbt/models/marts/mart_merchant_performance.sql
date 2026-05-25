@@ -1,4 +1,37 @@
-WITH filtered_transactions AS (
+WITH  __dbt__cte__stg_transactions as (
+WITH cleaned_transactions AS (
+    SELECT
+        LOWER(transaction_id) AS transaction_id,
+        CAST(amount AS DECIMAL(10, 2)) AS amount,
+        LOWER(status) AS status,
+        LOWER(merchant_id) AS merchant_id,
+        LOWER(customer_id) AS customer_id,
+        CAST(transaction_date AS DATE) AS transaction_date,
+        LOWER(payment_method) AS payment_method,
+        CURRENT_TIMESTAMP AS loaded_at
+    FROM
+        SIGMA_DE.PUBLIC.fact_transactions
+    WHERE
+        merchant_id NOT LIKE 'TEST_%'
+)
+
+SELECT * FROM cleaned_transactions
+),  __dbt__cte__stg_dim_merchant as (
+WITH source AS (
+    SELECT * FROM SIGMA_DE.PUBLIC.dim_merchant
+),
+
+renamed AS (
+    SELECT
+        LOWER(merchant_id) AS merchant_id,
+        merchant_name,
+        category,
+        city
+    FROM source
+)
+
+SELECT * FROM renamed
+), filtered_transactions AS (
     SELECT
         transaction_id,
         amount,
@@ -7,7 +40,7 @@ WITH filtered_transactions AS (
         customer_id,
         transaction_date,
         payment_method
-    FROM {{ ref('stg_transactions') }}
+    FROM __dbt__cte__stg_transactions
     WHERE status IN ('completed', 'failed')
 ),
 
@@ -17,7 +50,7 @@ merchant_details AS (
         merchant_name,
         category,
         city
-    FROM {{ ref('stg_dim_merchant') }}
+    FROM __dbt__cte__stg_dim_merchant
 ),
 
 aggregated_metrics AS (

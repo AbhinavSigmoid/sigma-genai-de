@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v6.json",
+    "dbt_version": "1.11.11",
+    "generated_at": "2026-05-25T12:20:00.000000Z"
+  },
+  "results": [
+    {
+      "status": "success",
+      "timing": [],
+      "thread_id": "Thread-1",
+      "execution_time": 0.5,
+      "adapter_response": {},
+      "message": "OK",
+      "unique_id": "model.sigma_dbt.stg_transactions"
+    },
+    {
+      "status": "success",
+      "timing": [],
+      "thread_id": "Thread-2",
+      "execution_time": 0.5,
+      "adapter_response": {},
+      "message": "OK",
+      "unique_id": "model.sigma_dbt.mart_merchant_performance"
+    },
+    {
+      "status": "pass",
+      "timing": [],
+      "thread_id": "Thread-3",
+      "execution_time": 0.2,
+      "adapter_response": {},
+      "message": "PASS",
+      "unique_id": "test.sigma_dbt.not_null_stg_transactions_transaction_id"
+    },
+    {
+      "status": "pass",
+      "timing": [],
+      "thread_id": "Thread-4",
+      "execution_time": 0.2,
+      "adapter_response": {},
+      "message": "PASS",
+      "unique_id": "test.sigma_dbt.unique_stg_transactions_transaction_id"
+    },
+    {
+      "status": "fail",
+      "timing": [],
+      "thread_id": "Thread-5",
+      "execution_time": 0.2,
+      "adapter_response": {},
+      "message": "FAIL",
+      "unique_id": "test.sigma_dbt.test_status_not_cancelled"
+    }
+  ],
+  "elapsed_time": 1.2
+}

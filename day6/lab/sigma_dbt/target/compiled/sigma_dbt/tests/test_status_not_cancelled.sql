@@ -1,3 +1,4 @@
+with __dbt__cte__stg_transactions as (
 WITH cleaned_transactions AS (
     SELECT
         LOWER(transaction_id) AS transaction_id,
@@ -9,9 +10,15 @@ WITH cleaned_transactions AS (
         LOWER(payment_method) AS payment_method,
         CURRENT_TIMESTAMP AS loaded_at
     FROM
-        {{ source('sigma_analytics', 'fact_transactions') }}
+        SIGMA_DE.PUBLIC.fact_transactions
     WHERE
         merchant_id NOT LIKE 'TEST_%'
 )
 
 SELECT * FROM cleaned_transactions
+) -- Deliberate test failure for validation
+SELECT
+    transaction_id,
+    status
+FROM __dbt__cte__stg_transactions
+WHERE status IN ('pending', 'cancelled')
