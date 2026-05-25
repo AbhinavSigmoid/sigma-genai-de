@@ -1,0 +1,43 @@
+{
+  "file": "queries/query2.sql",
+  "reviewed_at": "2026-05-25T16:15:54.740694",
+  "issues_found": 4,
+  "review": {
+    "issues": [
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Table name casing",
+        "line": "1",
+        "problem": "Table names are in uppercase but should be in lowercase to match the schema.",
+        "fix": "SELECT COUNT(*) FROM fact_transactions;"
+      },
+      {
+        "severity": "Medium",
+        "category": "Correctness",
+        "title": "Missing filter for revenue calculation",
+        "line": "N/A",
+        "problem": "The query does not filter transactions by status to calculate revenue correctly.",
+        "fix": "SELECT SUM(amount) FROM fact_transactions WHERE status = 'COMPLETED';"
+      },
+      {
+        "severity": "Medium",
+        "category": "Correctness",
+        "title": "Missing filter for failure rate calculation",
+        "line": "N/A",
+        "problem": "The query does not filter transactions by status to calculate failure rate correctly.",
+        "fix": "SELECT (COUNT(*) FILTER (WHERE status = 'FAILED') * 100.0) / COUNT(*) AS failure_rate FROM fact_transactions;"
+      },
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Lack of comments",
+        "line": "N/A",
+        "problem": "The query lacks comments explaining its purpose and logic.",
+        "fix": "-- Count all transactions\nSELECT COUNT(*) FROM fact_transactions;"
+      }
+    ],
+    "corrected_sql": "-- Count all transactions\nSELECT COUNT(*) FROM fact_transactions;\n\n-- Calculate revenue\nSELECT SUM(amount) AS revenue FROM fact_transactions WHERE status = 'COMPLETED';\n\n-- Calculate failure rate\nSELECT (COUNT(*) FILTER (WHERE status = 'FAILED') * 100.0) / COUNT(*) AS failure_rate FROM fact_transactions;",
+    "summary": "The query has readability issues and lacks correctness in calculating revenue and failure rate. Comments and proper casing should be added."
+  }
+}

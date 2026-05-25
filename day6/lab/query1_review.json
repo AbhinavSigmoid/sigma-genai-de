@@ -1,0 +1,43 @@
+{
+  "file": "queries/query1.sql",
+  "reviewed_at": "2026-05-25T16:15:48.187440",
+  "issues_found": 4,
+  "review": {
+    "issues": [
+      {
+        "severity": "Critical",
+        "category": "Correctness",
+        "title": "Incorrect Revenue Calculation",
+        "line": "WHERE status = 'COMPLETED'",
+        "problem": "The query does not filter transactions by status 'COMPLETED' to calculate revenue.",
+        "fix": "WHERE status = 'COMPLETED'"
+      },
+      {
+        "severity": "Medium",
+        "category": "Performance",
+        "title": "Potentially Missing Index",
+        "line": "JOIN sigma_analytics.dim_merchant ON sigma_analytics.fact_transactions.merchant_id = sigma_analytics.dim_merchant.merchant_id",
+        "problem": "Missing index on merchant_id in fact_transactions and dim_merchant could lead to slow joins.",
+        "fix": "CREATE INDEX idx_fact_transactions_merchant_id ON sigma_analytics.fact_transactions(merchant_id);\nCREATE INDEX idx_dim_merchant_merchant_id ON sigma_analytics.dim_merchant(merchant_id);"
+      },
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Lack of Comments",
+        "line": "Entire Query",
+        "problem": "The query lacks comments explaining complex logic or calculations.",
+        "fix": "-- Add comments explaining the purpose of each part of the query"
+      },
+      {
+        "severity": "Medium",
+        "category": "Correctness",
+        "title": "Incorrect Failure Rate Calculation",
+        "line": "COUNT(FAILED) / COUNT(*) * 100",
+        "problem": "The query does not correctly calculate the failure rate as it does not filter for 'FAILED' status.",
+        "fix": "COUNT(CASE WHEN status = 'FAILED' THEN 1 END) / COUNT(*) * 100"
+      }
+    ],
+    "corrected_sql": "SELECT SUM(amount) AS revenue, (COUNT(CASE WHEN status = 'FAILED' THEN 1 END) / COUNT(*) * 100) AS failure_rate\nFROM sigma_analytics.fact_transactions ft\nJOIN sigma_analytics.dim_merchant dm ON ft.merchant_id = dm.merchant_id\nWHERE status = 'COMPLETED';",
+    "summary": "The query has critical correctness issues with revenue calculation and failure rate. It also has performance and readability issues that need addressing."
+  }
+}

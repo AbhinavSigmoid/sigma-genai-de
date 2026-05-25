@@ -1,0 +1,27 @@
+{
+  "file": "queries/query3.sql",
+  "reviewed_at": "2026-05-25T16:15:58.459567",
+  "issues_found": 2,
+  "review": {
+    "issues": [
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Use of SELECT *",
+        "line": "1",
+        "problem": "Using SELECT * can lead to performance issues and potential security risks if unnecessary columns are included in the result set.",
+        "fix": "SELECT merchant_id, merchant_name, category, city, onboarded_date FROM DIM_MERCHANT;"
+      },
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Table name casing",
+        "line": "1",
+        "problem": "Table names should be consistently cased to avoid confusion and potential errors.",
+        "fix": "SELECT merchant_id, merchant_name, category, city, onboarded_date FROM sigma_analytics.dim_merchant;"
+      }
+    ],
+    "corrected_sql": "SELECT merchant_id, merchant_name, category, city, onboarded_date FROM sigma_analytics.dim_merchant;",
+    "summary": "The query is simple but could benefit from readability improvements by specifying columns and using consistent casing."
+  }
+}

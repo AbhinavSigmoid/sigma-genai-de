@@ -1,0 +1,35 @@
+{
+  "file": "queries/my_query.sql",
+  "reviewed_at": "2026-05-25T16:15:40.999192",
+  "issues_found": 3,
+  "review": {
+    "issues": [
+      {
+        "severity": "Critical",
+        "category": "Correctness",
+        "title": "Incorrect revenue calculation",
+        "line": "SUM(AMOUNT) AS TOTAL_REVENUE",
+        "problem": "Revenue should only include transactions with status 'COMPLETED', but the query sums all amounts.",
+        "fix": "SUM(CASE WHEN status = 'COMPLETED' THEN amount ELSE 0 END) AS TOTAL_REVENUE"
+      },
+      {
+        "severity": "Medium",
+        "category": "Readability",
+        "title": "Implicit join syntax",
+        "line": "FROM FACT_TRANSACTIONS ft, DIM_CUSTOMERS dc",
+        "problem": "Using implicit join syntax can be less readable and more prone to errors.",
+        "fix": "FROM sigma_analytics.fact_transactions ft JOIN sigma_analytics.dim_customer dc ON ft.CUSTOMER_ID = dc.CUSTOMER_ID"
+      },
+      {
+        "severity": "Low",
+        "category": "Readability",
+        "title": "Missing table aliases",
+        "line": "FROM FACT_TRANSACTIONS ft, DIM_CUSTOMERS dc",
+        "problem": "Table aliases should be used for better readability and to avoid confusion.",
+        "fix": "FROM sigma_analytics.fact_transactions ft JOIN sigma_analytics.dim_customer dc ON ft.CUSTOMER_ID = dc.CUSTOMER_ID"
+      }
+    ],
+    "corrected_sql": "SELECT dc.CUSTOMER_ID, dc.EMAIL, SUM(CASE WHEN ft.status = 'COMPLETED' THEN ft.amount ELSE 0 END) AS TOTAL_REVENUE FROM sigma_analytics.fact_transactions ft JOIN sigma_analytics.dim_customer dc ON ft.CUSTOMER_ID = dc.CUSTOMER_ID GROUP BY dc.CUSTOMER_ID, dc.EMAIL;",
+    "summary": "The query has a critical correctness issue with revenue calculation and minor readability issues with implicit join syntax and missing table aliases."
+  }
+}
