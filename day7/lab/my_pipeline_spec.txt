@@ -1,0 +1,70 @@
+OBJECTIVE:
+Build a pipeline that reconciles Sigma’s ledger with Razorpay, PayU, and Stripe settlement files to identify matched, disputed, and missing transactions before end-of-day settlement.
+
+DATA SOURCES:
+sigma_internal_ledger — Parquet — ~5M/day
+razorpay_settlement_file — CSV — ~1.5M/day
+payu_settlement_file — CSV — ~1.2M/day
+stripe_settlement_file — JSON — ~1M/day
+
+BRONZE LAYER:
+Ingest raw files without transformation.
+Add metadata columns:
+- ingestion_timestamp
+- source_file_name
+- gateway_name
+- batch_id
+- load_date
+
+Store Bronze data as Parquet partitioned by load_date and gateway_name.
+
+SILVER LAYER:
+Cast amount as DECIMAL(18,2).
+Cast transaction_date as DATE.
+Remove duplicates using transaction_id + gateway_name keeping latest ingestion_timestamp.
+Drop rows where amount <= 0 OR transaction_id IS NULL.
+Abort pipeline if duplicate rate > 2%.
+
+Join transactions with merchant reference data using broadcast join.
+
+Add quality_flag:
+- CLEAN
+- UNMATCHED
+
+GOLD LAYER:
+Create reconciliation_summary table with:
+- reconciliation_date
+- gateway_name
+- transaction_id
+- sigma_amount
+- gateway_amount
+- reconciliation_status
+- net_variance
+
+reconciliation_status =
+matched WHERE ABS(sigma_amount - gateway_amount) <= 1
+
+disputed WHERE ABS(sigma_amount - gateway_amount) > 1
+
+missing WHERE sigma.transaction_id IS NOT NULL
+AND gateway.transaction_id IS NULL
+
+net_variance = sigma_amount - gateway_amount
+
+Partition Gold tables by reconciliation_date and gateway_name.
+
+ERROR HANDLING:
+If source file missing:
+- raise FileNotFoundError
+- send SNS alert
+- abort pipeline
+
+If quality checks fail:
+- move batch to quarantine
+- stop Gold write
+
+PERFORMANCE:
+Partition by reconciliation_date and gateway_name.
+Cache Silver dataframe before joins.
+Use incremental MERGE instead of full overwrite.
+Use partition pruning on run_date.

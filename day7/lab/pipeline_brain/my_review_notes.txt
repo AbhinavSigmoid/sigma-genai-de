@@ -1,0 +1,5 @@
+1. Added try/except blocks for proper error handling.
+2. Replaced hardcoded S3 paths with environment variables.
+3. Added logging and row count monitoring.
+4. Fixed invalid dropDuplicates syntax.
+5. Added missing avg import.

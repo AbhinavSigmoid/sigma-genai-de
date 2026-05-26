@@ -69,8 +69,9 @@ OUTPUT_DIR = "pipeline_brain"
 # In production this happens because: API version bump, upstream schema migration,
 # new feature launch by another team, or a data provider changing their export format.
 DRIFTED_COLUMNS = {
-    "payment_gateway":  "string",    # new: which payment processor handled the txn
-    "discount_amount":  "float",     # new: discount applied at checkout
+    "payment_gateway": "string",
+    "discount_amount": "float",
+    "refund_flag": "boolean"
 }
 
 # ── SYSTEM PROMPT ──────────────────────────────────────────────────────────
