@@ -685,17 +685,17 @@ def print_scorecard(checks: list) -> int:
     if score == 5:
         verdict = "SHIP"
         print(f"\n  {green(bold('SHIP ✓'))}  All five checks green. Push the PR.")
+
     elif score >= 3:
         verdict = "CONDITIONAL SHIP"
         print(f"\n  {yellow(bold('CONDITIONAL SHIP'))}  Fix the red items above before merging.")
+
     else:
         verdict = "DOESN'T SHIP"
-        print(f"\n  {red(bold('DOESN\'T SHIP ✗'))}  Too many failures. This PR is not ready.")
+        print("\n  " + red(bold("DOESN'T SHIP ✗")) + "  Too many failures. This PR is not ready.")
 
     print("=" * 68)
     return score, verdict
-
-
 # ══════════════════════════════════════════════════════════════════════════════
 # STEP 4 — ACCOUNTABILITY GATE
 # ══════════════════════════════════════════════════════════════════════════════
