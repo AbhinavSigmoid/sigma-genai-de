@@ -7,5 +7,5 @@
   "errors": 0,
   "pass_threshold": 2,
   "check_passed": false,
-  "pytest_output": "============================= test session starts ==============================\ncollected 3 items\n\ndevops_brain/competitive/test_challenge_pipeline.py ...                  [100%]\n\n============================== 3 passed in 0.09s ===============================\n"
+  "pytest_output": "============================= test session starts ==============================\ncollected 3 items\n\ndevops_brain/competitive/test_challenge_pipeline.py ...                  [100%]\n\n============================== 3 passed in 0.11s ===============================\n"
 }

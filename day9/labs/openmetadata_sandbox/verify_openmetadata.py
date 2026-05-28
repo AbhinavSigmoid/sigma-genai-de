@@ -3,7 +3,7 @@ import urllib.request
 import sys
 import os
 
-URL_BASE = "http://localhost:8585/api/v1"
+URL_BASE = "https://sandbox.open-metadata.org/api/v1"
 
 def check_endpoint(endpoint):
     try:
@@ -22,7 +22,7 @@ def main():
     # 1. Check server status
     server_up = False
     try:
-        urllib.request.urlopen("http://localhost:8585", timeout=5)
+        urllib.request.urlopen("https://sandbox.open-metadata.org", timeout=5)
         server_up = True
     except Exception:
         pass

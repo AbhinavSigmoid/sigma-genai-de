@@ -553,11 +553,11 @@ def check_ci_slo() -> dict:
     print(bold("CHECK 4 — CI/SLO (pipeline_ci.yml + slo_definitions.json exist)"))
 
     ci_candidates = [
-        os.path.join(DEVOPS_BRAIN_DIR, "pipeline_ci.yml"),
+        os.path.join(OUTPUT_DIR, "pipeline_ci.yml"),
         os.path.join(SCRIPT_DIR, ".github", "workflows", "pipeline_ci.yml"),
         os.path.join(os.path.dirname(SCRIPT_DIR), ".github", "workflows", "pipeline_ci.yml"),
     ]
-    slo_path = os.path.join(DEVOPS_BRAIN_DIR, "slo_definitions.json")
+    slo_path = os.path.join(OUTPUT_DIR, "slo_definitions.json")
 
     ci_exists  = any(os.path.exists(p) for p in ci_candidates)
     slo_exists = os.path.exists(slo_path)
@@ -595,7 +595,7 @@ def check_observability(client, code_review_result: dict) -> dict:
     """
     print(bold("CHECK 5 — Observability (observability_report.json + SLO priority)"))
 
-    obs_path = os.path.join(DEVOPS_BRAIN_DIR, "observability_report.json")
+    obs_path = os.path.join(OUTPUT_DIR, "observability_report.json")
     obs_exists = os.path.exists(obs_path)
 
     obs_label = green(f"EXISTS ({obs_path})") if obs_exists else red("MISSING — run Sprint 5 (observability_sprint)")

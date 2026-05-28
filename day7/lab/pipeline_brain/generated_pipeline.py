@@ -131,8 +131,8 @@ def transform_silver(
         )
 
         # Deduplication
-        bronze_df = bronze_df.dropDuplicates(
-            ["transaction_id", "gateway_name"]
+        bronze_df = bronze_df.dropDuplicates( 
+            ["transaction_id"]
         )
 
         logger.info(
