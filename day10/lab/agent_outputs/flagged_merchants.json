@@ -1,0 +1,22 @@
+[
+  {
+    "merchant_id": "M789",
+    "reason": "\"Unusually high average transaction amount",
+    "flagged_at": "2026-05-29T12:36:00.767100"
+  },
+  {
+    "merchant_id": "M123",
+    "reason": "\"Transaction count >= 1 and average revenue per transaction < 100",
+    "flagged_at": "2026-05-29T12:36:08.228259"
+  },
+  {
+    "merchant_id": "M001",
+    "reason": "Unusually high average transaction amount",
+    "flagged_at": "2026-05-29T12:39:43.323841"
+  },
+  {
+    "merchant_id": "M003",
+    "reason": "\"Transaction count >= 1 and average revenue per transaction < 100",
+    "flagged_at": "2026-05-29T12:41:00.888266"
+  }
+]
