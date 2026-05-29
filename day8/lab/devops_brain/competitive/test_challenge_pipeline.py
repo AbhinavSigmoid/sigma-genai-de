@@ -4,7 +4,7 @@ def filter_recent_transactions(transactions, cutoff_date):
     return [t for t in transactions if t['date'] > cutoff_date]
 
 def apply_silver_rules(transactions):
-    return [t for t in transactions if t.get('transaction_id') and t['amount'] >= 0]
+    return [t for t in transactions if t.get('transaction_id') and t.get('amount') >= 0]
 
 import pytest
 
@@ -17,7 +17,7 @@ def test_filter_recent_transactions_boundary():
     ]
     result = filter_recent_transactions(transactions, cutoff_date)
     assert len(result) == 1
-    assert result[0]['date'] > cutoff_date
+    assert result[0]['amount'] == 200
 
 def test_apply_silver_rules_filter_none_transaction_id():
     transactions = [
