@@ -1,0 +1,20 @@
+
+======================================================================
+DAY 10 — LAB 1: Raw ReAct Agent (no framework)
+Sigma DataTech Fraud Investigation
+======================================================================
+
+────────────────────────────────────────────────────────────
+PREDICT FIRST — answer before the agent runs
+────────────────────────────────────────────────────────────
+Read the question above. You have 3 tools: query_db, get_schema, calculate.
+To answer it, the agent must: check the schema, write SQL, maybe calculate.
+
+Predict: how many Thought → Action → Observation cycles before Final Answer?
+  Your prediction (1–6): Traceback (most recent call last):
+  File "/Users/as-mac-1133/Desktop/sigma-genai-de/day10/lab/1_react_agent.py", line 475, in <module>
+    main()
+  File "/Users/as-mac-1133/Desktop/sigma-genai-de/day10/lab/1_react_agent.py", line 314, in main
+    step_prediction = int(input("  Your prediction (1–6): ").strip())
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
