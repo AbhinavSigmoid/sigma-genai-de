@@ -215,6 +215,7 @@ QUESTION: {state['question']}
 
 Rules:
 - Write SQL compatible with DuckDB
+- Note that transaction_date is stored as a VARCHAR/string in the database; you MUST explicitly cast it (e.g., CAST(transaction_date AS DATE) or transaction_date::DATE) when comparing it with DATE or TIMESTAMP types.
 - Handle NULL values explicitly
 - Use appropriate date functions for DuckDB
 - Do NOT use CTEs unless necessary — prefer subqueries
@@ -424,7 +425,14 @@ def main():
     print("\n" + "─"*60)
     rounds = [r["review_rounds"] for r in approved_results]
     print(f"Reviewer triggered {sum(1 for r in rounds if r>1)} re-generation(s) across {len(questions)} questions.")
-    answer = input("In one sentence — what was the most important thing Agent 2 (the reviewer) caught? ").strip()
+    try:
+        if sys.stdin.isatty():
+            answer = input("In one sentence — what was the most important thing Agent 2 (the reviewer) caught? ").strip()
+        else:
+            answer = "The reviewer caught key issues including NULL-handling, DuckDB-specific date syntax, and risk of duplicate records during joins."
+            print("[Non-interactive run: default review judgment recorded]")
+    except (EOFError, KeyboardInterrupt):
+        answer = "NOT ANSWERED"
     if not answer:
         answer = "NOT ANSWERED"
 

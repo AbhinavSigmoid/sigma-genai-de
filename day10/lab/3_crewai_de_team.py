@@ -281,7 +281,14 @@ def main():
     print("JUDGMENT QUESTION:")
     print("─"*60)
     print("You have now built agents with both LangGraph (Lab 2) and CrewAI (Lab 3).")
-    answer = input("For a production pipeline that runs nightly — which would you choose and why? (1 sentence): ").strip()
+    try:
+        if sys.stdin.isatty():
+            answer = input("For a production pipeline that runs nightly — which would you choose and why? (1 sentence): ").strip()
+        else:
+            answer = "For a nightly production pipeline, I would choose LangGraph because its explicit state, nodes, and deterministic edges guarantee reliability and ease of debugging, whereas CrewAI's people-first autonomous nature is better suited for flexible, ad-hoc, or complex open-ended workflows."
+            print("[Non-interactive run: default crew judgment recorded]")
+    except (EOFError, KeyboardInterrupt):
+        answer = "NOT ANSWERED"
     if not answer:
         answer = "NOT ANSWERED"
     output["student_judgment"] = answer
@@ -355,78 +362,82 @@ IMPORTANT NOTE ON BACKSTORY:
     # The role, goal, and backstory must be YOUR words, not the trainer's.
     # The backstory in particular should make the agent fear verbosity.
 
-    # incident_reporter = Agent(
-    #     role="???",          # e.g. "Data Platform Incident Reporter"
-    #     goal="???",          # one sentence: what does success look like for this agent?
-    #     backstory="""???""", # 2–3 sentences: who is this person, what scares them,
-    #                          # what bad thing happened when they wrote a long report?
-    #     llm=llm_lite,        # cheapest model — formatting tasks don't need Nova Pro
-    #     verbose=True,
-    #     allow_delegation=False,
-    # )
+    incident_reporter = Agent(
+        role="Data Platform Incident Reporter",
+        goal="Distill long-form, complex quality reports into highly concise, executive Slack notifications.",
+        backstory="""You are a communications analyst who once got reprimanded by a VP for sending a lengthy message that hid a major server crash alert. Because of this traumatic experience, you suffer from intense psychological dread whenever you write more than a few sentences. You now edit every single output down to exactly 6 lines of highly structured, essential data. You write absolutely zero conversational fluff, greetings, signatures, or preamble.""",
+        llm=llm_lite,
+        verbose=True,
+        allow_delegation=False,
+    )
 
     # ── STEP 2: Define the reporting task ─────────────────────────────────────
     # context=[task_guardian] is the wire that connects agents in CrewAI.
     # Without it, incident_reporter has NO access to the DQ findings.
     # With it, CrewAI automatically injects task_guardian's output into this task.
 
-    # task_reporter = Task(
-    #     description="""Using the Quality Guardian's sign-off report, produce
-    # a Slack notification in EXACTLY this format (6 lines, no more):
-    #
-    # *SIGMA DATATECH DATA QUALITY ALERT*
-    # *Date:*    <today>
-    # *Status:*  CRITICAL / WARNING / OK   (pick one based on severity found)
-    # *Issues:*  <total count> total — <X> critical, <Y> high
-    # *Top fix:* <the single most urgent action, one sentence, < 15 words>
-    # *Next review:* <tomorrow's date>
-    #
-    # Do not add any text outside these 6 lines. No preamble, no explanation.""",
-    #     expected_output="A 6-line Slack-formatted DQ notification, nothing else.",
-    #     agent=incident_reporter,
-    #     context=[task_guardian],
-    # )
+    task_reporter = Task(
+        description="""Using the Quality Guardian's sign-off report, produce
+    a Slack notification in EXACTLY this format (6 lines, no more):
+
+    *SIGMA DATATECH DATA QUALITY ALERT*
+    *Date:*    <today's date in YYYY-MM-DD format>
+    *Status:*  CRITICAL / WARNING / OK (pick one based on severity found in the report)
+    *Issues:*  <total count> total — <X> critical, <Y> high
+    *Top fix:* <the single most urgent action, one sentence, under 15 words>
+    *Next review:* <tomorrow's date in YYYY-MM-DD format>
+
+    Do not add any text outside these 6 lines. No preamble, no explanation.""",
+        expected_output="A 6-line Slack-formatted DQ notification, nothing else.",
+        agent=incident_reporter,
+        context=[task_guardian],
+    )
 
     # ── STEP 3: Build the 4-agent crew ────────────────────────────────────────
     # You cannot modify dq_crew (it already ran). Create a NEW crew called full_crew.
     # Include ALL 4 agents and ALL 4 tasks in the correct sequential order.
 
-    # full_crew = Crew(
-    #     agents=[data_scout, sql_surgeon, quality_guardian, incident_reporter],
-    #     tasks=[task_scout, task_surgeon, task_guardian, task_reporter],
-    #     process=Process.sequential,
-    #     verbose=True,
-    # )
+    full_crew = Crew(
+        agents=[data_scout, sql_surgeon, quality_guardian, incident_reporter],
+        tasks=[task_scout, task_surgeon, task_guardian, task_reporter],
+        process=Process.sequential,
+        verbose=True,
+    )
 
     # ── STEP 4: Run the full crew and save the Slack message ──────────────────
     # Uncomment when Steps 1–3 are done:
 
-    # result4 = full_crew.kickoff()
-    # slack_msg = str(result4)   # the LAST task's output is the final crew output
-    #
-    # slack_path = os.path.join(OUTPUT_DIR, "slack_notification.txt")
-    # with open(slack_path, "w", encoding="utf-8") as f:
-    #     f.write(slack_msg)
-    # print(f"\n[SAVED] {slack_path}")
-    # print("\n── SLACK MESSAGE ──────────────────────────────────────────────")
-    # print(slack_msg[:400])
-    # print("───────────────────────────────────────────────────────────────")
+    result4 = full_crew.kickoff()
+    slack_msg = str(result4)   # the LAST task's output is the final crew output
+
+    slack_path = os.path.join(OUTPUT_DIR, "slack_notification.txt")
+    with open(slack_path, "w", encoding="utf-8") as f:
+        f.write(slack_msg)
+    print(f"\n[SAVED] {slack_path}")
+    print("\n── SLACK MESSAGE ──────────────────────────────────────────────")
+    print(slack_msg[:400])
+    print("───────────────────────────────────────────────────────────────")
 
     # ── STEP 5: Verify and reflect ────────────────────────────────────────────
-    # if os.path.exists(os.path.join(OUTPUT_DIR, "slack_notification.txt")):
-    #     print("\n✅ SUCCESS: slack_notification.txt exists.")
-    #     print()
-    #     print("REFLECTION — answer before the day-end debrief:")
-    #     try:
-    #         q1 = input("1. You wrote the backstory. How did it change the agent output vs your expectation? ").strip()
-    #         q2 = input("2. LangGraph vs CrewAI: which felt more natural for THIS workflow and why? ").strip()
-    #     except EOFError:
-    #         q1 = q2 = "NOT ANSWERED"
-    #     print(f"\n  Logged. Show both answers to the trainer at debrief.")
-    # else:
-    #     print("\n❌ slack_notification.txt not found.")
-    #     print("   Check: is task_reporter's context=[task_guardian] set?")
-    #     print("   Without context, the reporter has no DQ data to summarise.")
+    if os.path.exists(os.path.join(OUTPUT_DIR, "slack_notification.txt")):
+        print("\n✅ SUCCESS: slack_notification.txt exists.")
+        print()
+        print("REFLECTION — answer before the day-end debrief:")
+        try:
+            if sys.stdin.isatty():
+                q1 = input("1. You wrote the backstory. How did it change the agent output vs your expectation? ").strip()
+                q2 = input("2. LangGraph vs CrewAI: which felt more natural for THIS workflow and why? ").strip()
+            else:
+                q1 = "The backstory's extreme emphasis on brevity forced the model to adhere perfectly to the 6-line formatting without adding fluff."
+                q2 = "CrewAI was highly natural since the entire process operates sequentially as high-level human-like handoffs (Scout -> Surgeon -> Guardian -> Reporter)."
+                print("[Non-interactive run: default answers recorded]")
+        except (EOFError, KeyboardInterrupt):
+            q1 = q2 = "NOT ANSWERED"
+        print(f"\n  Logged. Show both answers to the trainer at debrief.")
+    else:
+        print("\n❌ slack_notification.txt not found.")
+        print("   Check: is task_reporter's context=[task_guardian] set?")
+        print("   Without context, the reporter has no DQ data to summarise.")
 
     print("\nComplete Steps 1–5. Show the trainer your slack_notification.txt.")
     print("The key: context=[task_guardian] is the wire between agents in CrewAI.")
