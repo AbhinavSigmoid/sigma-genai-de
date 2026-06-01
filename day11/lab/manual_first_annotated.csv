@@ -1,0 +1,15 @@
+transaction_id,issue_found,severity,auto_fixable
+<missing>,Missing transaction_id,High,No
+TXN100017,Negative amount,High,No
+TXN100033,Invalid date,High,No
+TXN100041,Invalid currency code (IND),Medium,Yes
+TXN100048,Invalid date format,Medium,Yes
+TXN100054,Zero amount,Medium,Yes
+TXN100062,Missing merchant_name,Medium,No
+TXN100025,Duplicate transaction_id,High,Yes
+TXN100073,Negative amount,High,No
+TXN100079,Amount stored as string,Medium,Yes
+TXN100083,Unsupported currency EUR,Medium,No
+TXN100085,Invalid status value,Low,Yes
+TXN100091,Suspiciously high amount,High,No
+TXN100097,Future transaction date,Medium,No
