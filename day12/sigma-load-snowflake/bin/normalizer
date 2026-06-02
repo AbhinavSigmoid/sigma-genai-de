@@ -1,0 +1,6 @@
+#!/Users/as-mac-1133/Desktop/sigma-genai-de/day11/lab/venv/bin/python3.14
+import sys
+from charset_normalizer.cli import cli_detect
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(cli_detect())

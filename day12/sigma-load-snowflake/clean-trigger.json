@@ -1,0 +1,32 @@
+{
+  "LambdaFunctionConfigurations": [
+    {
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:706244676382:function:sigma-validate-transactions",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "Prefix",
+              "Value": "bronze/"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "LambdaFunctionArn": "arn:aws:lambda:us-east-1:706244676382:function:sigma-load-snowflake",
+      "Events": ["s3:ObjectCreated:*"],
+      "Filter": {
+        "Key": {
+          "FilterRules": [
+            {
+              "Name": "Prefix",
+              "Value": "clean/"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

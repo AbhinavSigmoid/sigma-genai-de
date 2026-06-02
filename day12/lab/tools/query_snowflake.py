@@ -45,9 +45,10 @@ def get_connection(warehouse: str = None):
         account=os.getenv("SNOWFLAKE_ACCOUNT"),
         user=os.getenv("SNOWFLAKE_USER"),
         password=os.getenv("SNOWFLAKE_PASSWORD"),
-        database=os.getenv("SNOWFLAKE_DATABASE", "SIGMA"),
-        schema=os.getenv("SNOWFLAKE_SCHEMA", "SILVER"),
-        warehouse=warehouse or os.getenv("SNOWFLAKE_WAREHOUSE", "SIGMA_WH"),
+        role=os.getenv("SNOWFLAKE_ROLE", "ACCOUNTADMIN"),
+        database=os.getenv("SNOWFLAKE_DATABASE"),
+        schema=os.getenv("SNOWFLAKE_SCHEMA"),
+        warehouse=warehouse or os.getenv("SNOWFLAKE_WAREHOUSE"),
     )
 
 

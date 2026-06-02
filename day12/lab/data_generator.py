@@ -240,8 +240,9 @@ def main():
 
     # Load to Snowflake (clean mode only — chaos is for investigation scenarios)
     if args.mode == "clean":
-        loaded = write_to_snowflake(records)
-        print(f"  Snowflake: {loaded} rows loaded (MERGE INTO)")
+        # loaded = write_to_snowflake(records)
+        # print(f"  Snowflake: {loaded} rows loaded (MERGE INTO)")
+        pass
 
     print("=" * 60)
     print(f"  Done. {len(records)} records processed.")

@@ -1,0 +1,14 @@
+{
+  "Records": [
+    {
+      "s3": {
+        "bucket": {
+          "name": "sigma-datatech-676382"
+        },
+        "object": {
+          "key": "clean/clean/2026/06/02/10/batch_1780396284.json"
+        }
+      }
+    }
+  ]
+}
