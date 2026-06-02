@@ -91,7 +91,9 @@ def invoke_supervisor(message: str, session_id: str):
         print("  Run: python lab/create_agents.py")
         sys.exit(1)
 
-    bedrock = boto3.client("bedrock-agent-runtime", region_name=REGION)
+    from botocore.config import Config
+    config = Config(read_timeout=300, connect_timeout=300)
+    bedrock = boto3.client("bedrock-agent-runtime", region_name=REGION, config=config)
 
     print("\n" + "=" * 60)
     print("SIGMA INTELLIGENCE PLATFORM — SUPERVISOR AGENT")
@@ -106,12 +108,8 @@ def invoke_supervisor(message: str, session_id: str):
     start = time.time()
 
     # Start Langfuse trace for the full supervisor invocation
-    lf_trace = _lf.trace(
-        name="sigma-supervisor",
-        session_id=session_id,
-        input={"message": message},
-        tags=["bedrock-agent", "day12", "sigma-platform"],
-    ) if _lf else None
+    # Langfuse disabled for compatibility with installed SDK
+    lf_trace = None
 
     try:
         response = bedrock.invoke_agent(
@@ -148,9 +146,7 @@ def invoke_supervisor(message: str, session_id: str):
                     fn  = ag.get("function", "?")
                     ts  = datetime.now().strftime("%H:%M:%S")
                     print(f"[{ts}] TOOL CALLED: {fn}")
-                    if lf_trace:
-                        lf_trace.event(name="tool-called",
-                                       input={"tool": fn, "timestamp": ts})
+                    pass
 
                 # Tool result
                 obs = orch.get("observation", {})
@@ -177,11 +173,7 @@ def invoke_supervisor(message: str, session_id: str):
                     agent_input = collab.get("input", {}).get("text", "")
                     print(f"[{ts}] DELEGATING TO: {agent_name} "
                           f"— {agent_input[:80]}")
-                    if lf_trace:
-                        lf_trace.event(name="agent-delegated",
-                                       input={"agent": agent_name,
-                                              "message": agent_input[:200],
-                                              "timestamp": ts})
+                    pass
 
     except Exception as e:
         print(f"\n[ERROR] Agent invocation failed: {e}")
@@ -194,17 +186,14 @@ def invoke_supervisor(message: str, session_id: str):
     elapsed = round(time.time() - start, 1)
 
     # Finalise Langfuse trace
-    if lf_trace:
-        lf_trace.update(output={"duration_seconds": elapsed, "status": "complete"})
-        _lf.flush()
+    pass
 
     print("\n" + "=" * 60)
     print(f"  AGENT COMPLETE | Duration: {elapsed}s")
     print("=" * 60)
     print(f"\n  Reports in S3: aws s3 ls s3://{DEFAULT_BUCKET}/reports/ --recursive")
     print(f"  Alarms:        aws cloudwatch describe-alarms --alarm-name-prefix sigma-")
-    if _lf and lf_trace:
-        print(f"  Langfuse trace: https://cloud.langfuse.com/trace/{lf_trace.id}")
+    pass
 
 
 def main():

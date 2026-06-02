@@ -16,12 +16,15 @@ import re
 import sys
 import time
 import zipfile
+import os
 from pathlib import Path
 
 # ── Config ─────────────────────────────────────────────────────────────────────
 
 REGION    = "us-east-1"
 MODEL_ID  = "amazon.nova-pro-v1:0"
+
+BEDROCK_AGENT_ROLE_ARN = os.getenv("BEDROCK_AGENT_ROLE_ARN")
 
 SCRIPT_DIR = Path(__file__).parent          # repo/day12/lab/
 ENV_PATH   = SCRIPT_DIR / ".env"
@@ -222,6 +225,26 @@ def wait_for_agent(client, agent_id, desired, timeout=180):
     raise TimeoutError(f"Agent {agent_id} did not reach {desired} within {timeout}s")
 
 
+def safe_prepare_agent(client, agent_id):
+    # Check if agent is currently preparing
+    status = client.get_agent(agentId=agent_id)["agent"]["agentStatus"]
+    if status == "PREPARING":
+        wait_for_agent(client, agent_id, "PREPARED")
+        return
+
+    if status == "PREPARED":
+        return
+
+    try:
+        client.prepare_agent(agentId=agent_id)
+        wait_for_agent(client, agent_id, "PREPARED")
+    except Exception as e:
+        if "Preparing" in str(e):
+            wait_for_agent(client, agent_id, "PREPARED")
+        else:
+            raise
+
+
 def find_agent_by_name(client, name):
     resp = client.list_agents(maxResults=100)
     for a in resp.get("agentSummaries", []):
@@ -353,8 +376,7 @@ def get_or_create_sub_agent(bedrock, name, dispatcher_arn, guardrail_id, account
             alias_arn = f"arn:aws:bedrock:{REGION}:{account_id}:agent-alias/{existing_id}/{alias_id}"
             return existing_id, alias_id, alias_arn
         # Alias missing — prepare and create
-        bedrock.prepare_agent(agentId=existing_id)
-        wait_for_agent(bedrock, existing_id, "PREPARED")
+        safe_prepare_agent(bedrock, existing_id)
         a = bedrock.create_agent_alias(agentId=existing_id, agentAliasName="v1")
         return existing_id, a["agentAlias"]["agentAliasId"], a["agentAlias"]["agentAliasArn"]
 
@@ -365,7 +387,11 @@ def get_or_create_sub_agent(bedrock, name, dispatcher_arn, guardrail_id, account
         instruction=instructions,
         description=f"Sigma Intelligence Platform — {name}",
         idleSessionTTLInSeconds=1800,
-        guardrailConfiguration={"guardrailIdentifier": guardrail_id, "guardrailVersion": "DRAFT"},
+        agentResourceRoleArn=BEDROCK_AGENT_ROLE_ARN,
+        guardrailConfiguration={
+            "guardrailIdentifier": guardrail_id,
+            "guardrailVersion": "DRAFT"
+        },
     )
     agent_id = r["agent"]["agentId"]
     log(f"  Agent ID: {agent_id}")
@@ -382,8 +408,7 @@ def get_or_create_sub_agent(bedrock, name, dispatcher_arn, guardrail_id, account
     )
 
     # Prepare
-    bedrock.prepare_agent(agentId=agent_id)
-    wait_for_agent(bedrock, agent_id, "PREPARED")
+    safe_prepare_agent(bedrock, agent_id)
     log("  Prepared.")
 
     # Alias
@@ -408,7 +433,12 @@ def get_or_create_supervisor(bedrock, sub_agent_data, dispatcher_arn, guardrail_
             instruction=instructions,
             description="Sigma Intelligence Platform — Supervisor",
             idleSessionTTLInSeconds=1800,
-            guardrailConfiguration={"guardrailIdentifier": guardrail_id, "guardrailVersion": "DRAFT"},
+            agentResourceRoleArn=BEDROCK_AGENT_ROLE_ARN,
+            agentCollaboration="SUPERVISOR",
+            guardrailConfiguration={
+                "guardrailIdentifier": guardrail_id,
+                "guardrailVersion": "DRAFT"
+            },
         )
         supervisor_id = r["agent"]["agentId"]
         log(f"  Agent ID: {supervisor_id}")
@@ -424,6 +454,23 @@ def get_or_create_supervisor(bedrock, sub_agent_data, dispatcher_arn, guardrail_
         )
     else:
         log(f"  Already exists: {supervisor_id}")
+        # Update existing agent to enable SUPERVISOR collaboration
+        bedrock.update_agent(
+            agentId=supervisor_id,
+            agentName="SupervisorAgent",
+            foundationModel=MODEL_ID,
+            instruction=instructions,
+            description="Sigma Intelligence Platform — Supervisor",
+            idleSessionTTLInSeconds=1800,
+            agentResourceRoleArn=BEDROCK_AGENT_ROLE_ARN,
+            agentCollaboration="SUPERVISOR",
+            guardrailConfiguration={
+                "guardrailIdentifier": guardrail_id,
+                "guardrailVersion": "DRAFT"
+            },
+        )
+        log("  Updated SupervisorAgent collaboration to SUPERVISOR.")
+        time.sleep(3)
 
     # Associate sub-agents as collaborators
     log("  Associating sub-agents as collaborators...")
@@ -443,8 +490,7 @@ def get_or_create_supervisor(bedrock, sub_agent_data, dispatcher_arn, guardrail_
 
     # Prepare supervisor (must re-prepare after adding collaborators)
     log("  Preparing supervisor (includes all collaborators)...")
-    bedrock.prepare_agent(agentId=supervisor_id)
-    wait_for_agent(bedrock, supervisor_id, "PREPARED")
+    safe_prepare_agent(bedrock, supervisor_id)
 
     # Get latest non-DRAFT version
     versions = bedrock.list_agent_versions(agentId=supervisor_id, maxResults=100)
@@ -488,6 +534,13 @@ def main():
         log("\n[ERROR] LAMBDA_ROLE_ARN not set in lab/.env")
         log("Fill it in and re-run this script.")
         sys.exit(1)
+
+    global BEDROCK_AGENT_ROLE_ARN
+    BEDROCK_AGENT_ROLE_ARN = env.get("BEDROCK_AGENT_ROLE_ARN", "").strip()
+    if not BEDROCK_AGENT_ROLE_ARN:
+        BEDROCK_AGENT_ROLE_ARN = os.getenv("BEDROCK_AGENT_ROLE_ARN")
+    if not BEDROCK_AGENT_ROLE_ARN:
+        BEDROCK_AGENT_ROLE_ARN = role_arn
 
     sts        = boto3.client("sts", region_name=REGION)
     account_id = sts.get_caller_identity()["Account"]
