@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.env
+.env.local
+
+# API Keys and Credentials — NEVER COMMIT
+*secret*
+*credentials*
+*.pem
+*.key
+*.p8
+snowflake_config.json
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# DuckDB — generated locally by 0_setup_duckdb.py
+*.duckdb
+*.duckdb.wal
+
+# Large generated files
+*.xlsx
+*.docx
+~$*
+
+# Student lab outputs — never commit trainer runs
+agent_outputs/
+output/
+
+# Temporary
+*.tmp
+.pytest_cache/
+*.log
+node_modules/
+
+.vercel
+

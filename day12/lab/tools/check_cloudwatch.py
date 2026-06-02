@@ -1,189 +1,171 @@
 """
-Lambda Tool: check_cloudwatch_metrics
-Called by: Forensics Agent
-Action group: DataPlatformTools
-
-Correlates Lambda version history, Firehose delivery failures,
-Kinesis throttles, and Snowflake COPY INTO outcomes across a timeline.
-This is the tool that finds the 4-minute failure window.
+Phase 2 Investigation Tool — CloudWatch
+Shows Lambda errors, Firehose failures, Lambda version changes,
+and S3 zero-byte files for the last 8 hours.
 """
 
-import boto3, json, os
+import boto3, os, sys
 from datetime import datetime, timezone, timedelta
+from dotenv import load_dotenv
 
+load_dotenv()
 
-def lambda_handler(event, context):
-    params = {p["name"]: p["value"] for p in event.get("parameters", [])}
-    hours_back   = int(params.get("hours_back", 8))
-    function_name = params.get("function_name",
-                               os.getenv("PRODUCER_LAMBDA_NAME", "sigma-kinesis-producer"))
-    region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+region      = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+fn_name     = os.getenv("PRODUCER_LAMBDA_NAME", "sigma-kinesis-producer")
+hours_back  = int(sys.argv[1]) if len(sys.argv) > 1 else 8
 
-    result = investigate(function_name, hours_back, region)
+cw  = boto3.client("cloudwatch", region_name=region)
+lam = boto3.client("lambda", region_name=region)
+s3  = boto3.client("s3", region_name=region)
 
-    return {
-        "messageVersion": "1.0",
-        "response": {
-            "actionGroup": event.get("actionGroup"),
-            "function": event.get("function"),
-            "functionResponse": {
-                "responseBody": {"TEXT": {"body": json.dumps(result, default=str)}}
-            },
-        },
-    }
+now = datetime.now(timezone.utc)
+start = now - timedelta(hours=hours_back)
 
+print(f"\nCLOUDWATCH INVESTIGATION (last {hours_back} hours)")
+print("=" * 65)
 
-def investigate(function_name: str, hours_back: int, region: str) -> dict:
-    cw     = boto3.client("cloudwatch", region_name=region)
-    logs   = boto3.client("logs", region_name=region)
-    lam    = boto3.client("lambda", region_name=region)
-    now    = datetime.now(timezone.utc)
-    start  = now - timedelta(hours=hours_back)
+# ── Lambda version history ────────────────────────────────────────────────────
+print(f"\n  Lambda: {fn_name} — version/alias history")
+try:
+    alias_name = os.getenv("PRODUCER_LAMBDA_ALIAS", "LIVE")
+    alias = lam.get_alias(FunctionName=fn_name, Name=alias_name)
 
-    findings = {
-        "investigation_window": {
-            "from": start.isoformat(),
-            "to":   now.isoformat(),
-            "hours": hours_back,
-        },
-        "lambda_version_history": [],
-        "lambda_errors":          [],
-        "firehose_failures":      [],
-        "kinesis_throttles":      [],
-        "anomaly_window":         None,
-        "root_cause_hypothesis":  None,
-    }
+    print(f"    Current alias LIVE → version {alias['FunctionVersion']}")
 
-    # ── Lambda version/alias history ─────────────────────────────────────────
-    try:
-        aliases = lam.list_aliases(FunctionName=function_name)["Aliases"]
-        for alias in aliases:
-            findings["lambda_version_history"].append({
-                "alias":           alias["Name"],
-                "function_version": alias["FunctionVersion"],
-                "description":     alias.get("Description", ""),
-            })
+    versions = lam.list_versions_by_function(FunctionName=fn_name)["Versions"]
 
-        versions = lam.list_versions_by_function(FunctionName=function_name)["Versions"]
-        for v in versions:
-            if v["Version"] != "$LATEST":
-                findings["lambda_version_history"].append({
-                    "version":         v["Version"],
-                    "last_modified":   v["LastModified"],
-                    "description":     v.get("Description", ""),
-                    "code_sha":        v.get("CodeSha256", "")[:12],
-                })
-    except Exception as e:
-        findings["lambda_version_history"] = [{"error": str(e)}]
+    numbered = sorted(
+        [v for v in versions if v["Version"] != "$LATEST"],
+        key=lambda x: int(x["Version"]),
+    )
 
-    # ── Lambda errors ─────────────────────────────────────────────────────────
-    try:
-        resp = cw.get_metric_statistics(
-            Namespace="AWS/Lambda",
-            MetricName="Errors",
-            Dimensions=[{"Name": "FunctionName", "Value": function_name}],
-            StartTime=start, EndTime=now, Period=300,
-            Statistics=["Sum"],
+    for v in numbered:
+        ts = v.get("LastModified", "?")
+        print(
+            f"    Version {v['Version']:>3}  modified: {ts}  "
+            f"{v.get('Description','')[:40]}"
         )
-        errors = sorted(resp["Datapoints"], key=lambda x: x["Timestamp"])
-        for dp in errors:
-            if dp["Sum"] > 0:
-                findings["lambda_errors"].append({
-                    "timestamp": dp["Timestamp"].isoformat(),
-                    "error_count": int(dp["Sum"]),
-                })
-    except Exception as e:
-        findings["lambda_errors"] = [{"error": str(e)}]
 
-    # ── Firehose delivery failures ────────────────────────────────────────────
-    stream_name = os.getenv("SIGMA_STREAM", "sigma-transactions")
-    try:
-        resp = cw.get_metric_statistics(
-            Namespace="AWS/Firehose",
-            MetricName="DeliveryToS3.DataFreshness",
-            Dimensions=[{"Name": "DeliveryStreamName",
-                         "Value": f"{stream_name}-firehose"}],
-            StartTime=start, EndTime=now, Period=300,
-            Statistics=["Maximum"],
-        )
-        for dp in sorted(resp["Datapoints"], key=lambda x: x["Timestamp"]):
-            if dp["Maximum"] > 600:    # freshness > 10 minutes = problem
-                findings["firehose_failures"].append({
-                    "timestamp":        dp["Timestamp"].isoformat(),
-                    "freshness_seconds": int(dp["Maximum"]),
-                    "status": "DELAYED" if dp["Maximum"] < 900 else "CRITICAL",
-                })
-    except Exception as e:
-        findings["firehose_failures"] = [{"error": str(e)}]
+except Exception as e:
+    print(f"    ERROR: {e}")
 
-    # ── Kinesis throttles ─────────────────────────────────────────────────────
-    try:
-        resp = cw.get_metric_statistics(
-            Namespace="AWS/Kinesis",
-            MetricName="WriteProvisionedThroughputExceeded",
-            Dimensions=[{"Name": "StreamName", "Value": stream_name}],
-            StartTime=start, EndTime=now, Period=300,
-            Statistics=["Sum"],
-        )
-        for dp in sorted(resp["Datapoints"], key=lambda x: x["Timestamp"]):
-            if dp["Sum"] > 0:
-                findings["kinesis_throttles"].append({
-                    "timestamp":     dp["Timestamp"].isoformat(),
-                    "throttle_count": int(dp["Sum"]),
-                })
-    except Exception as e:
-        findings["kinesis_throttles"] = [{"error": str(e)}]
+# ── Lambda errors ─────────────────────────────────────────────────────────────
+print(f"\n  Lambda errors per 5-min interval:")
 
-    # ── Synthesise: find the anomaly window ───────────────────────────────────
-    # Look for the timestamp where Lambda version changed AND errors appeared
-    version_change_ts = None
-    for item in findings["lambda_version_history"]:
-        if "last_modified" in item and item.get("version") == "2":
-            version_change_ts = item["last_modified"]
+resp = cw.get_metric_statistics(
+    Namespace="AWS/Lambda",
+    MetricName="Errors",
+    Dimensions=[{"Name": "FunctionName", "Value": fn_name}],
+    StartTime=start,
+    EndTime=now,
+    Period=300,
+    Statistics=["Sum"],
+)
 
-    if version_change_ts:
-        findings["anomaly_window"] = {
-            "detected_at": version_change_ts,
-            "trigger":     "Lambda version 2 deployed",
-            "correlation": "Lambda v2 deployed → malformed JSON → Firehose delivered → Snowflake loaded 0 rows",
+errors = sorted(resp["Datapoints"], key=lambda x: x["Timestamp"])
+
+error_found = False
+
+for dp in errors:
+    if dp["Sum"] > 0:
+        ts = dp["Timestamp"].strftime("%H:%M UTC")
+        print(f"    {ts}  {int(dp['Sum'])} errors  ← INVESTIGATE")
+        error_found = True
+
+if not error_found:
+    print("    None — Lambda reporting no errors")
+    print("    NOTE: Lambda can run successfully but produce bad output.")
+    print("          No errors here does NOT mean the pipeline is healthy.")
+
+# ── Lambda invocation count ───────────────────────────────────────────────────
+print(f"\n  Lambda invocations per hour:")
+
+resp2 = cw.get_metric_statistics(
+    Namespace="AWS/Lambda",
+    MetricName="Invocations",
+    Dimensions=[{"Name": "FunctionName", "Value": fn_name}],
+    StartTime=start,
+    EndTime=now,
+    Period=3600,
+    Statistics=["Sum"],
+)
+
+invocations = sorted(resp2["Datapoints"], key=lambda x: x["Timestamp"])
+
+for dp in invocations:
+    ts = dp["Timestamp"].strftime("%Y-%m-%d %H:%M UTC")
+    cnt = int(dp["Sum"])
+    print(f"    {ts}  {cnt:>6,} invocations")
+
+# ── Firehose delivery freshness ───────────────────────────────────────────────
+stream_name = os.getenv("SIGMA_STREAM", "sigma-transactions")
+
+print(f"\n  Firehose data freshness (seconds) — high = delivery delay:")
+
+resp3 = cw.get_metric_statistics(
+    Namespace="AWS/Firehose",
+    MetricName="DeliveryToS3.DataFreshness",
+    Dimensions=[
+        {
+            "Name": "DeliveryStreamName",
+            "Value": f"{stream_name}-firehose",
         }
-        findings["root_cause_hypothesis"] = (
-            f"Lambda function '{function_name}' was updated to version 2 "
-            f"at {version_change_ts}. Version 2 likely changed the JSON field names "
-            f"or date format, causing Snowflake COPY INTO to reject all records silently."
+    ],
+    StartTime=start,
+    EndTime=now,
+    Period=300,
+    Statistics=["Maximum"],
+)
+
+freshness = sorted(resp3["Datapoints"], key=lambda x: x["Timestamp"])
+
+for dp in freshness:
+    ts = dp["Timestamp"].strftime("%H:%M UTC")
+    val = int(dp["Maximum"])
+    flag = "  ← DELAYED" if val > 600 else ""
+    print(f"    {ts}  {val:>6} sec{flag}")
+
+if not freshness:
+    print("    No Firehose metrics found")
+
+# ── EXTENSION: S3 Zero-byte File Detection ───────────────────────────────────
+print(f"\n  S3 Zero-byte File Detection:")
+
+bucket = os.getenv("SIGMA_S3_BUCKET")
+
+if not bucket:
+    print("    SIGMA_S3_BUCKET not configured in .env")
+else:
+    try:
+        response = s3.list_objects_v2(
+            Bucket=bucket,
+            Prefix="bronze/"
         )
 
-    return findings
+        zero_files = []
 
+        for obj in response.get("Contents", []):
+            if obj["Size"] == 0:
+                zero_files.append(obj)
 
-# ── Local test ────────────────────────────────────────────────────────────────
-if __name__ == "__main__":
-    import sys
-    from dotenv import load_dotenv
-    load_dotenv()
+        if zero_files:
+            print("    WARNING: Zero-byte files detected")
 
-    hours = int(sys.argv[1]) if len(sys.argv) > 1 else 8
-    fn    = os.getenv("PRODUCER_LAMBDA_NAME", "sigma-kinesis-producer")
-    region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+            for obj in zero_files:
+                print(
+                    f"    {obj['Key']} | "
+                    f"Size={obj['Size']} | "
+                    f"Modified={obj['LastModified']}"
+                )
+        else:
+            print("    No zero-byte files detected")
 
-    print(f"\nInvestigating {fn} over last {hours} hours...\n")
-    result = investigate(fn, hours, region)
+    except Exception as e:
+        print(f"    ERROR checking S3: {e}")
 
-    print("LAMBDA VERSION HISTORY:")
-    for item in result["lambda_version_history"]:
-        print(f"  {item}")
-
-    if result["lambda_errors"]:
-        print("\nLAMBDA ERRORS:")
-        for e in result["lambda_errors"]:
-            print(f"  {e}")
-
-    if result["anomaly_window"]:
-        print(f"\nANOMALY WINDOW: {result['anomaly_window']}")
-        print(f"HYPOTHESIS: {result['root_cause_hypothesis']}")
-    else:
-        print("\nNo anomaly detected in the investigation window.")
-
-    if "--test" in sys.argv:
-        assert "lambda_version_history" in result
-        print("\ncheck_cloudwatch.py test PASSED")
+print()
+print("  KEY QUESTION: Is there a timestamp where Lambda version changed")
+print("  AND Firehose freshness spiked AND Lambda errors appeared?")
+print("  AND S3 contains zero-byte files?")
+print("  That window is the root cause.")
+print()
