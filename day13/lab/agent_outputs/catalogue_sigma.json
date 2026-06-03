@@ -1,0 +1,177 @@
+{
+  "mystery_folder": "sigma_datatech",
+  "industry_analysis": {
+    "industry": "Sigma DataTech \u2014 Fintech payments platform",
+    "what_they_do": "Processes merchant transactions in India. Tracks GMV, SLA breaches, and customer payments.",
+    "top_clues": [
+      "merchant_name",
+      "transaction_id",
+      "gmv_inr"
+    ],
+    "confidence": "HIGH"
+  },
+  "generated_at": "2026-06-03T06:53:06.863063+00:00",
+  "tables": {
+    "stg_dim_merchant": {
+      "source_tables": [
+        "sigma_analytics.dim_merchant"
+      ],
+      "column_lineage": [
+        {
+          "target_column": "merchant_id",
+          "source_table": "sigma_analytics.dim_merchant",
+          "source_column": "merchant_id",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "merchant_name",
+          "source_table": "sigma_analytics.dim_merchant",
+          "source_column": "merchant_name",
+          "transformation": "direct"
+        },
+        {
+          "target_column": "category",
+          "source_table": "sigma_analytics.dim_merchant",
+          "source_column": "category",
+          "transformation": "direct"
+        },
+        {
+          "target_column": "city",
+          "source_table": "sigma_analytics.dim_merchant",
+          "source_column": "city",
+          "transformation": "direct"
+        }
+      ],
+      "pii_columns": [],
+      "business_description": "This model extracts and transforms merchant data from the source table, converting the merchant ID to lowercase. It provides a standardized view of merchant information, including their names, categories, and cities.",
+      "who_should_access": "Marketing and Sales teams",
+      "who_should_NOT_access": "HR and Finance teams",
+      "sensitivity_level": "INTERNAL",
+      "governance_flag": "Ensure that the source table 'dim_merchant' is properly secured and access is restricted to authorized personnel only.",
+      "model_name": "stg_dim_merchant",
+      "sql_lines": 14,
+      "analysed_at": "2026-06-03T06:53:09.438592+00:00"
+    },
+    "stg_transactions": {
+      "source_tables": [
+        "sigma_analytics.fact_transactions"
+      ],
+      "column_lineage": [
+        {
+          "target_column": "transaction_id",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "transaction_id",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "amount",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "amount",
+          "transformation": "CAST(DECIMAL(10, 2))"
+        },
+        {
+          "target_column": "status",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "status",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "merchant_id",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "merchant_id",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "customer_id",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "customer_id",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "transaction_date",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "transaction_date",
+          "transformation": "CAST(DATE)"
+        },
+        {
+          "target_column": "payment_method",
+          "source_table": "sigma_analytics.fact_transactions",
+          "source_column": "payment_method",
+          "transformation": "LOWER"
+        },
+        {
+          "target_column": "loaded_at",
+          "source_table": "N/A",
+          "source_column": "N/A",
+          "transformation": "direct"
+        }
+      ],
+      "pii_columns": [
+        {
+          "column": "customer_id",
+          "pii_type": "GOV_ID",
+          "severity": "HIGH",
+          "real_world_risk": "Exposure of customer IDs could lead to identity theft and fraud."
+        },
+        {
+          "column": "merchant_id",
+          "pii_type": "GOV_ID",
+          "severity": "MEDIUM",
+          "real_world_risk": "Exposure of merchant IDs could lead to unauthorized access to merchant accounts."
+        }
+      ],
+      "business_description": "This model cleans and standardizes transaction data from the source table, ensuring consistency and usability for further analysis. It filters out test data and formats key fields for easier querying.",
+      "who_should_access": "Finance and Data Analysis teams",
+      "who_should_NOT_access": "Marketing and Sales teams",
+      "sensitivity_level": "CONFIDENTIAL",
+      "governance_flag": "Ensure proper access controls are in place to protect PII data.",
+      "model_name": "stg_transactions",
+      "sql_lines": 17,
+      "analysed_at": "2026-06-03T06:53:12.560734+00:00"
+    }
+  },
+  "three_questions": {
+    "q1_most_damaging_column": {
+      "column": "stg_transactions.customer_id",
+      "why": "A malicious actor could use the customer_id to perform identity theft, leading to financial fraud and personal data misuse. This column contains unique identifiers for customers, which can be exploited to access personal information and conduct fraudulent activities."
+    },
+    "q2_hacker_target_table": {
+      "table": "stg_transactions",
+      "why": "With SELECT access to the stg_transactions table, a hacker could extract sensitive transaction data, including customer IDs, transaction amounts, and payment methods. This information can be used for identity theft, financial fraud, and unauthorized transactions.",
+      "damage_estimate": "significant harm"
+    },
+    "q3_europe_expansion": {
+      "columns_needing_consent": [
+        "stg_transactions.customer_id",
+        "stg_transactions.merchant_id"
+      ],
+      "why": "These columns contain personal identifiers (PII) that are subject to GDPR regulations. Customer IDs and merchant IDs can be used to identify individuals and businesses, requiring explicit consent for data processing.",
+      "columns_already_compliant": [
+        "stg_dim_merchant.merchant_id (transformed to lowercase, no PII)"
+      ]
+    }
+  },
+  "pii_surface_area": [
+    {
+      "table": "stg_transactions",
+      "column": "customer_id",
+      "pii_type": "GOV_ID",
+      "severity": "HIGH",
+      "risk": "Exposure of customer IDs could lead to identity theft and fraud."
+    },
+    {
+      "table": "stg_transactions",
+      "column": "merchant_id",
+      "pii_type": "GOV_ID",
+      "severity": "MEDIUM",
+      "risk": "Exposure of merchant IDs could lead to unauthorized access to merchant accounts."
+    }
+  ],
+  "summary": {
+    "total_tables": 2,
+    "total_pii_columns": 2,
+    "critical_columns": 0,
+    "high_columns": 1,
+    "analysis_seconds": 8.2
+  }
+}
